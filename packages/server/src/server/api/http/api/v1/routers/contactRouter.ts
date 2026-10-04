@@ -7,6 +7,7 @@ import { Success } from "../responses/success";
 import { Contact } from "@server/databases/server/entity";
 import { parseWithQuery } from "../utils";
 import { BadRequest } from "../responses/errors";
+import { ContactsLib } from "@server/api/lib/ContactsLib";
 
 export class ContactRouter {
     private static isAddressObject(data: any): boolean {
@@ -19,6 +20,11 @@ export class ContactRouter {
     }
 
     static async get(ctx: RouterContext, _: Next) {
+        const refresh = ctx.request.query?.refresh;
+        if (refresh != null && refresh !== "true" && refresh !== "false") {
+            throw new BadRequest({ error: "refresh must be true or false" });
+        }
+        if (refresh === "true") ContactsLib.invalidateCache();
         const extraProps = parseWithQuery(ctx.request.query?.extraProperties as string)
         const contacts = await ContactInterface.getAllContacts(extraProps);
         return new Success(ctx, { data: contacts }).send();
