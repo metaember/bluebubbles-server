@@ -42,6 +42,7 @@ export class ContactsLib {
     }
 
     static getAllContacts(extraProps: string[] = [], forceRefresh = false) {
+        if (!contacts && isMinHighSierra) throw new Error("Native Contacts module unavailable");
         if (!contacts) return [];
         if (extraProps.some(prop => !ContactsLib.allExtraProps.includes(prop))) {
             throw new TypeError("Unsupported contact property");

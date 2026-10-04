@@ -2,7 +2,7 @@ import "reflect-metadata";
 import { app } from "electron";
 import fs from "fs";
 import path from "path";
-import { randomBytes, timingSafeEqual } from "crypto";
+import { randomBytes } from "crypto";
 import Koa from "koa";
 import Router from "koa-router";
 import { Server } from "@server";
@@ -13,6 +13,7 @@ import { ContactRouter } from "@server/api/http/api/v1/routers/contactRouter";
 import { ChatRouter } from "@server/api/http/api/v1/routers/chatRouter";
 import { MessageRouter } from "@server/api/http/api/v1/routers/messageRouter";
 import ServerLog from "electron-log";
+import { shadowReadPolicy } from "./shadow-policy";
 
 export async function startShadow() {
     const dataDir = app.getPath("userData");
@@ -37,25 +38,7 @@ export async function startShadow() {
     }
 
     const koa = new Koa();
-    koa.use(async (ctx, next) => {
-        // Header-only token; no credentials in URLs/logs. No CORS or socket server.
-        const supplied = Buffer.from(ctx.get("Authorization"));
-        const expected = Buffer.from(`Bearer ${token}`);
-        if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) {
-            ctx.status = 401;
-            return;
-        }
-        if (ctx.method !== "GET") {
-            ctx.status = 405;
-            return;
-        }
-        try {
-            await next();
-        } catch {
-            ctx.status = 503;
-            ctx.body = { status: 503, message: "Candidate read unavailable" };
-        }
-    });
+    koa.use(shadowReadPolicy(token));
     const router = new Router();
     router.get("/shadow/status", ctx => {
         ctx.body = {
