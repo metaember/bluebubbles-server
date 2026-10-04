@@ -33,11 +33,12 @@ export class MessageRepository extends Loggable {
     /**
      * Creates a connection to the iMessage database
      */
-    async initialize() {
+    async initialize(readonly = false) {
         this.db = new DataSource({
             name: "iMessage",
             type: "better-sqlite3",
             database: this.dbPath,
+            readonly,
             entities: [Chat, Handle, Message, Attachment]
         });
 

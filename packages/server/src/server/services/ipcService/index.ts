@@ -1,4 +1,5 @@
 import { app, dialog, ipcMain, systemPreferences, shell } from "electron";
+import { ContactsLib } from "@server/api/lib/ContactsLib";
 import { askForAccessibilityAccess, askForFullDiskAccess } from "node-mac-permissions";
 import process from "process";
 
@@ -176,6 +177,7 @@ export class IPCService extends Loggable {
         });
 
         ipcMain.handle("get-contacts", async (event, extraProperties) => {
+            ContactsLib.invalidateCache();
             return await ContactInterface.getAllContacts(extraProperties ?? []);
         });
 
