@@ -16,7 +16,10 @@ async function request(route, { method = 'GET', authenticated = true } = {}) {
 }
 async function read(route) {
     const response = await request(route);
-    if (!response.ok) throw new Error('Candidate read failed');
+    if (!response.ok) {
+        stage += ` (HTTP ${response.status})`;
+        throw new Error('Candidate read failed');
+    }
     return response.json();
 }
 const db = path.join(os.homedir(), 'Library/Messages/chat.db');
@@ -50,12 +53,22 @@ async function main() {
     if (status.messagesReady) {
         stage = 'native message/text/attachment comparisons';
         // Compare stable native identifiers plus text and attachments, not fuzzy names.
-        const messages = sql('SELECT ROWID, guid, text FROM message WHERE text IS NOT NULL ORDER BY ROWID DESC LIMIT 20');
+        const messages = sql("SELECT ROWID, guid, text FROM message WHERE text IS NOT NULL AND text <> '' ORDER BY ROWID DESC LIMIT 20");
+        let normalizedTexts = 0;
         for (const message of messages) {
+            stage = 'native message lookup';
             const result = (await read(`/api/v1/message/${encodeURIComponent(message.guid)}?with=attachments`)).data;
+            stage = 'native message GUID comparison';
             assert.equal(result.guid, message.guid);
+            stage = 'native message row ID comparison';
             assert.equal(result.originalROWID, message.ROWID);
-            assert.equal(result.text, message.text);
+            stage = 'native message text comparison';
+            // Match upstream Message.universalText(true): remove Apple's object
+            // replacement markers and trim boundary whitespace, not fuzzy matching.
+            const expectedText = message.text.replaceAll('\ufffc', '').trim();
+            if (expectedText !== message.text) normalizedTexts++;
+            assert.equal(result.text, expectedText);
+            stage = 'native attachment comparison';
             const attachments = sql(`SELECT a.guid FROM attachment a JOIN message_attachment_join j ON j.attachment_id=a.ROWID WHERE j.message_id=${Number(message.ROWID)}`);
             assert.deepEqual(result.attachments.map(a => a.guid).sort(), attachments.map(a => a.guid).sort());
         }
@@ -66,7 +79,7 @@ async function main() {
             const actual = (await read(`/api/v1/chat/${encodeURIComponent(chat.guid)}/message?limit=3&sort=DESC`)).data;
             assert.deepEqual(actual.map(m => m.guid).sort(), expected.map(m => m.guid).sort());
         }
-        console.log(JSON.stringify({ nativeMessageComparisons: messages.length, nativeChatComparisons: chats.length, matched: true }));
+        console.log(JSON.stringify({ nativeMessageComparisons: messages.length, normalizedTexts, nativeChatComparisons: chats.length, matched: true }));
     } else {
         console.log(JSON.stringify({ messagesBlockedByPermission: true }));
         blocked = true;

@@ -73,6 +73,9 @@ production's signing identity. A permission-blocked candidate stays explicit in
 4. `check_candidate.cjs` compares native message IDs/text/attachment IDs and recent
    chat reads without printing personal data. Optional name arguments check presence
    but report only counts. Exit 2 means permissions remain blocked.
+   Text comparisons apply upstream's exact whitespace/object-marker normalization;
+   the sample excludes empty native text and does not certify every attributed-body
+   variant or the completeness of the entire archive.
 5. With user approval, add/edit a test contact outside the candidate; verify both
    explicit refresh and the 60-second missed-notification fallback in one running
    process. Unit fixtures alone do **not** establish live iCloud change propagation.
